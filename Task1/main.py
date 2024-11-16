@@ -17,11 +17,15 @@ encoder = OrdinalEncoder()
 df['gender'] = encoder.fit_transform(df[['gender']])
 
 
+
 A_y = df['bird category'][:50]
 B_y = df['bird category'][50:100]
 C_y = df['bird category'][100:]
 
 X = df.drop(columns='bird category')
+constant = 1e-5
+X = np.log(X + constant)
+
 A_x = X[:50]
 B_x = X[50:100]
 C_x = X[100:]
@@ -39,43 +43,36 @@ X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.4, shuffle
 # print(Y_train)
 # print(Y_test)
 
-constant = 1e-5
-X_train = np.log(X_train + constant)
-X_test = np.log(X_test + constant)
-
 def adaline_predict(x, weights, bias = 0):
     predictions = []
     for index, row in x.iterrows():
         net_value = NetValue_calc(row.values, weights, bias)
         print(net_value)
-        if net_value <= 0:
+        if net_value < 0:
             y_pred = -1
-        elif net_value <= 1:
-            y_pred = 1
         else:
-            y_pred = 2
+            y_pred = 1
         predictions.append(y_pred)
     return np.array(predictions)
 
-def adaline_train(x, y, weights, epochs, lr, mse, bias = 0):
-    for i in range(epochs):
-        ypred = []
-        for index, row in x.iterrows():
-            vals = row.values
-            net_value = NetValue_calc(vals, weights, bias)
-            ypred.append(net_value)
-            # print(net_value)
-            error = y[index] - net_value
 
-            if error == 0:
-                continue
+def adaline_train(x, y, weights, epochs, lr, mse_threshold, bias = 0):
+    for epoch in range(epochs):
+        net_inputs = x.dot(weights) + bias
+        errors = y - net_inputs
+        weights_update = lr * x.T.dot(errors) / x.shape[0]
+        bias_update = lr * errors.sum() / x.shape[0]
 
-            weights = weights_calc(weights, lr, error, vals)
+        weights += weights_update
+        bias += bias_update
 
-        if mean_squared_error(y, ypred) < mse:
+        mse = (errors**2).mean()
+        # print(f'Epoch {epoch+1}, MSE: {mse}')
+        if mse < mse_threshold:
             break
 
-    return weights
+    return weights, bias
+
 
 def perceptron_train(x, y, weights, epochs, lr, bias = 0):
     for i in range(epochs):
@@ -93,7 +90,7 @@ def perceptron_train(x, y, weights, epochs, lr, bias = 0):
     return weights
 
 def NetValue_calc(x, weights, bias=0):
-    return np.dot(weights, x) + bias
+    return np.dot(x, weights) + bias
 
 def signum(v):
     if v > 0:
@@ -102,7 +99,7 @@ def signum(v):
         return -1
 
 def weights_calc(weights, lr, error, x):
-    return weights + lr * error * x
+    return weights + (lr * error * x)
 
 
 def perceptron_predict(x, weights, bias=0):
@@ -113,9 +110,9 @@ def perceptron_predict(x, weights, bias=0):
         predictions.append(y_pred)
     return np.array(predictions)
 
-weights = np.random.rand(X_train.shape[1])
+weights = np.random.rand(X_train.shape[1]) * 0.01
 
-epochs = 500
+epochs = 600
 learning_rate = 0.01
 # weights = perceptron_train(X_train, Y_train, weights, epochs, learning_rate)
 
@@ -123,9 +120,9 @@ learning_rate = 0.01
 
 
 mse = 0.01
-weights = adaline_train(X_train, Y_train, weights, epochs, learning_rate, mse)
-predictions = adaline_predict(X_test, weights)
-# print(predictions)
+weights, bias = adaline_train(X_train, Y_train, weights, epochs, learning_rate, mse, 1)
+predictions = adaline_predict(X_test, weights, bias)
+print(predictions)
 
 accuracy = np.mean(predictions == Y_test)
 print("Accuracy on the test set:", accuracy)
