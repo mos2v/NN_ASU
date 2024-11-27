@@ -108,6 +108,21 @@ def MLP_predict(X, weights, biases, activation_func, bias=False):
         predictions.append(predicted_class)
     return predictions
 
+def format_confusion_matrix(conf_matrix):
+    formatted_matrix = ''
+    for row in conf_matrix:
+        formatted_row = ' '.join(f'{num:4d}' for num in row)
+        formatted_matrix += formatted_row + '\n'
+    return formatted_matrix
+
+def compute_confusion_matrix(y_true, y_pred, num_classes):
+    confusion_matrix = np.zeros((num_classes, num_classes), dtype=int)
+
+    for true_label, pred_label in zip(y_true, y_pred):
+        confusion_matrix[true_label, pred_label] += 1
+
+    return confusion_matrix
+
 def apply_model(hidden_layers, neurons, lr, epochs, activation, use_bias):
     df = pd.read_csv('birds.csv')
     df['gender'] = df['gender'].fillna(df['gender'].mode()[0])
@@ -132,15 +147,23 @@ def apply_model(hidden_layers, neurons, lr, epochs, activation, use_bias):
     Y_train_one_hot = np.eye(num_classes)[Y_train_values]
     Y_test_one_hot = np.eye(num_classes)[Y_test_values]
 
-    weights, biases = MLP_train(X_train_scaled, Y_train_one_hot, hidden_layers, neurons, lr, epochs, activation_func=True, bias=True)
-    predictions = MLP_predict(X_test_scaled, weights, biases, activation_func=True, bias=True)
+
+    weights, biases = MLP_train(X_train_scaled, Y_train_one_hot, hidden_layers, neurons, lr, epochs, activation_func=activation, bias=use_bias)
+    predictions = MLP_predict(X_test_scaled, weights, biases, activation_func=activation, bias=use_bias)
 
     accuracy = np.mean(predictions == Y_test_values)
+    accuracy_text = f"Accuracy on the test set: {accuracy * 100:.2f}%"
     print("Accuracy on the test set:", accuracy)
     print(classification_report(Y_test_values, predictions))
-    conf_matrix = confusion_matrix(Y_test_values, predictions)
+
+    print('-----------------------------')
+    num_classes = len(set(Y_test_values))
+    conf_matrix = compute_confusion_matrix(Y_test_values, predictions, num_classes)
+    confusion_matrix_text = "Confusion Matrix:\n" + format_confusion_matrix(conf_matrix)
     print("Confusion Matrix:")
     print(conf_matrix)
+
+    return accuracy_text, confusion_matrix_text
 
 
 def run_model():
@@ -151,6 +174,10 @@ def run_model():
     epochs = num_epochs.get()
     bias = True if use_bias.get() else False
     activ = True if activation.get() == 'Sigmoid' else False
+
+    if lr <= 0:
+        messagebox.showerror("Input Error", "Learning rate must be positive.")
+        return
 
     if hiddenL <= 0:
         messagebox.showerror("Input Error", "Number of hidden layers must be positive.")
@@ -164,7 +191,10 @@ def run_model():
         messagebox.showerror("Input Error", "Number of epochs must be positive.")
         return
 
-    apply_model(hiddenL, neurons_num, lr, epochs, activ, use_bias)
+    accuracy_text, confusion_matrix_text = apply_model(hiddenL, neurons_num, lr, epochs, activ, bias)
+
+    accuracy_label.config(text=accuracy_text)
+    confusion_matrix_label.config(text=confusion_matrix_text)
 
 root = tk.Tk()
 root.title("Bird Classification GUI")
@@ -176,7 +206,7 @@ neurons = tk.IntVar()
 learning_rate = tk.DoubleVar(value=0.01)
 num_epochs = tk.IntVar(value=600)
 use_bias = tk.BooleanVar()
-activation = tk.StringVar()
+activation = tk.StringVar(value='Sigmoid')
 
 hidden_layers_label = tk.Label(root, text="Hidden Layers:")
 hidden_layers_label.grid(row=2, column=0, padx=10, pady=5, sticky='w')
@@ -220,5 +250,15 @@ for idx, (text, mode) in enumerate(alg_options):
 
 run_button = tk.Button(root, text="Run", command=run_model)
 run_button.grid(row=14, column=0, padx=10, pady=10)
+
+
+accuracy_label = tk.Label(root, text="Accuracy will be displayed here.")
+accuracy_label.grid(row=15, column=0, columnspan=2, padx=10, pady=5)
+
+confusion_matrix_label = tk.Label(root, text="Confusion Matrix will be displayed here.", justify='left', font=('Courier', 12))
+confusion_matrix_label.grid(row=16, column=0, columnspan=2, padx=10, pady=5)
+
+# For better readability, you might set a fixed-width font
+confusion_matrix_label.config(font=('Courier', 12))
 
 root.mainloop()
