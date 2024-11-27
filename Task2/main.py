@@ -32,6 +32,7 @@ def random_matrix(rows, cols):
 def softmax(z):
     exp_z = np.exp(z - np.max(z))
     return exp_z / exp_z.sum()
+
 # def random_matrix(rows, cols):
 #     return np.random.rand(rows, cols) * 0.001
 
@@ -70,7 +71,7 @@ def MLP_train(X, Y, hidden_layers, neurons, learning_rate, epochs, activation_fu
 
             # Compute error at the output layer
             errors = [None] * (len(layers) - 1)
-            errors[-1] = activation[-1] - y  # For softmax with cross-entropy
+            errors[-1] = activation[-1] - y
 
             # Cross-entropy loss
             total_error += -np.sum(y * np.log(activation[-1] + 1e-15))
@@ -98,7 +99,7 @@ def MLP_predict(X, weights, biases, activation_func, bias=False):
             z = np.dot(weights[l], activations[l])
             if bias:
                 z += biases[l]
-            if l == len(weights) - 1:  # Output layer
+            if l == len(weights) - 1:
                 a = softmax(z)
             else:
                 a = sigmoid(z) if activation_func else hyperbolic_tangent(z)
@@ -107,7 +108,7 @@ def MLP_predict(X, weights, biases, activation_func, bias=False):
         predictions.append(predicted_class)
     return predictions
 
-def apply_model(hidden_layers, neurons, lr, epochs):
+def apply_model(hidden_layers, neurons, lr, epochs, activation, use_bias):
     df = pd.read_csv('birds.csv')
     df['gender'] = df['gender'].fillna(df['gender'].mode()[0])
     encoder = OrdinalEncoder()
@@ -119,8 +120,7 @@ def apply_model(hidden_layers, neurons, lr, epochs):
     mapping = {'A': 0, 'B': 1, 'C': 2}
     Y = Y.map(mapping)
 
-    X_train, X_test, Y_train, Y_test = train_test_split(
-        X, Y, test_size=0.4, shuffle=True, random_state=42, stratify=Y)
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.4, shuffle=True, random_state=42, stratify=Y)
 
     scaler = MinMaxScaler()
     X_train_scaled = scaler.fit_transform(X_train)
@@ -132,8 +132,7 @@ def apply_model(hidden_layers, neurons, lr, epochs):
     Y_train_one_hot = np.eye(num_classes)[Y_train_values]
     Y_test_one_hot = np.eye(num_classes)[Y_test_values]
 
-    weights, biases = MLP_train(
-        X_train_scaled, Y_train_one_hot, hidden_layers, neurons, lr, epochs, activation_func=True, bias=True)
+    weights, biases = MLP_train(X_train_scaled, Y_train_one_hot, hidden_layers, neurons, lr, epochs, activation_func=True, bias=True)
     predictions = MLP_predict(X_test_scaled, weights, biases, activation_func=True, bias=True)
 
     accuracy = np.mean(predictions == Y_test_values)
@@ -143,5 +142,83 @@ def apply_model(hidden_layers, neurons, lr, epochs):
     print("Confusion Matrix:")
     print(conf_matrix)
 
-# Example usage:
-apply_model(hidden_layers=1, neurons=5, lr=0.05, epochs=1000)
+
+def run_model():
+
+    hiddenL = hidden_layers.get()
+    neurons_num = neurons.get()
+    lr = learning_rate.get()
+    epochs = num_epochs.get()
+    bias = True if use_bias.get() else False
+    activ = True if activation.get() == 'Sigmoid' else False
+
+    if hiddenL <= 0:
+        messagebox.showerror("Input Error", "Number of hidden layers must be positive.")
+        return
+
+    if neurons_num <= 0:
+        messagebox.showerror("Input Error", "Number of neurons must be positive.")
+        return
+
+    if epochs <= 0:
+        messagebox.showerror("Input Error", "Number of epochs must be positive.")
+        return
+
+    apply_model(hiddenL, neurons_num, lr, epochs, activ, use_bias)
+
+root = tk.Tk()
+root.title("Bird Classification GUI")
+
+# Variables
+
+hidden_layers = tk.IntVar()
+neurons = tk.IntVar()
+learning_rate = tk.DoubleVar(value=0.01)
+num_epochs = tk.IntVar(value=600)
+use_bias = tk.BooleanVar()
+activation = tk.StringVar()
+
+hidden_layers_label = tk.Label(root, text="Hidden Layers:")
+hidden_layers_label.grid(row=2, column=0, padx=10, pady=5, sticky='w')
+
+hidden_layer_entry = tk.Entry(root, textvariable=hidden_layers)
+hidden_layer_entry.grid(row=3, column=0, padx=10, pady=5)
+
+neurons_label = tk.Label(root, text="Number of Neurons:")
+neurons_label.grid(row=4, column=0, padx=10, pady=5, sticky='w')
+
+neurons_entry = tk.Entry(root, textvariable=neurons)
+neurons_entry.grid(row=5, column=0, padx=10, pady=5)
+
+# Learning Rate Input
+lr_label = tk.Label(root, text="Learning Rate:")
+lr_label.grid(row=6, column=0, padx=10, pady=5, sticky='w')
+
+lr_entry = tk.Entry(root, textvariable=learning_rate)
+lr_entry.grid(row=7, column=0, padx=10, pady=5)
+
+# Epochs Input
+epochs_label = tk.Label(root, text="Number of Epochs:")
+epochs_label.grid(row=8, column=0, padx=10, pady=5, sticky='w')
+
+epochs_entry = tk.Entry(root, textvariable=num_epochs)
+epochs_entry.grid(row=9, column=0, padx=10, pady=5)
+
+# Bias Checkbox
+bias_checkbox = tk.Checkbutton(root, text="Add Bias", variable=use_bias)
+bias_checkbox.grid(row=11, column=0, padx=10, pady=5, sticky='w')
+
+# Algorithm Selection
+activation_label = tk.Label(root, text="Choose Activation Function:")
+activation_label.grid(row=12, column=0, padx=10, pady=5, sticky='w')
+
+alg_options = [('Sigmoid', 'Sigmoid'), ('Hyperbolic Tangent', 'Hyperbolic Tangent')]
+for idx, (text, mode) in enumerate(alg_options):
+    alg_radio = tk.Radiobutton(root, text=text, variable=activation, value=mode)
+    alg_radio.grid(row=13, column=idx, padx=10, pady=5, sticky='w')
+
+
+run_button = tk.Button(root, text="Run", command=run_model)
+run_button.grid(row=14, column=0, padx=10, pady=10)
+
+root.mainloop()
