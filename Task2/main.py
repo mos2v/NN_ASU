@@ -1,5 +1,4 @@
 import numpy as np
-from numpy.ma.core import append
 import pandas as pd
 import matplotlib.pyplot as plt
 import tkinter as tk
@@ -150,20 +149,23 @@ def apply_model(hidden_layers, neurons, lr, epochs, activation, use_bias):
 
     weights, biases = MLP_train(X_train_scaled, Y_train_one_hot, hidden_layers, neurons, lr, epochs, activation_func=activation, bias=use_bias)
     predictions = MLP_predict(X_test_scaled, weights, biases, activation_func=activation, bias=use_bias)
+    train_pred = MLP_predict(X_train_scaled, weights, biases, activation_func=activation, bias=use_bias)
 
-    accuracy = np.mean(predictions == Y_test_values)
-    accuracy_text = f"Accuracy on the test set: {accuracy * 100:.2f}%"
-    print("Accuracy on the test set:", accuracy)
+    train_acc = np.mean(train_pred == Y_train_values)
+    train_accuracy_txt = f"Accuracy on the train set: {train_acc * 100:.2f}%"
+    print(train_accuracy_txt)
+    test_accuracy = np.mean(predictions == Y_test_values)
+    test_accuracy_text = f"Accuracy on the test set: {test_accuracy * 100:.2f}%"
+    print(test_accuracy_text)
     print(classification_report(Y_test_values, predictions))
 
-    print('-----------------------------')
     num_classes = len(set(Y_test_values))
     conf_matrix = compute_confusion_matrix(Y_test_values, predictions, num_classes)
-    confusion_matrix_text = "Confusion Matrix:\n" + format_confusion_matrix(conf_matrix)
+    confusion_matrix_text = "Test Confusion Matrix:\n" + format_confusion_matrix(conf_matrix)
     print("Confusion Matrix:")
     print(conf_matrix)
 
-    return accuracy_text, confusion_matrix_text
+    return train_accuracy_txt, test_accuracy_text, confusion_matrix_text
 
 
 def run_model():
@@ -191,9 +193,11 @@ def run_model():
         messagebox.showerror("Input Error", "Number of epochs must be positive.")
         return
 
-    accuracy_text, confusion_matrix_text = apply_model(hiddenL, neurons_num, lr, epochs, activ, bias)
+    train_acc_txt, tst_accuracy_text, confusion_matrix_text = apply_model(hiddenL, neurons_num, lr, epochs, activ, bias)
 
-    accuracy_label.config(text=accuracy_text)
+
+    train_accuracy_label.config(text=train_acc_txt)
+    tst_accuracy_label.config(text=tst_accuracy_text)
     confusion_matrix_label.config(text=confusion_matrix_text)
 
 root = tk.Tk()
@@ -251,12 +255,15 @@ for idx, (text, mode) in enumerate(alg_options):
 run_button = tk.Button(root, text="Run", command=run_model)
 run_button.grid(row=14, column=0, padx=10, pady=10)
 
+train_accuracy_label = tk.Label(root, text="Train Accuracy will be displayed here.")
+train_accuracy_label.grid(row=15, column=0, columnspan=2, padx=10, pady=5)
 
-accuracy_label = tk.Label(root, text="Accuracy will be displayed here.")
-accuracy_label.grid(row=15, column=0, columnspan=2, padx=10, pady=5)
+
+tst_accuracy_label = tk.Label(root, text="Test Accuracy will be displayed here.")
+tst_accuracy_label.grid(row=16, column=0, columnspan=2, padx=10, pady=5)
 
 confusion_matrix_label = tk.Label(root, text="Confusion Matrix will be displayed here.", justify='left', font=('Courier', 12))
-confusion_matrix_label.grid(row=16, column=0, columnspan=2, padx=10, pady=5)
+confusion_matrix_label.grid(row=17, column=0, columnspan=2, padx=10, pady=5)
 
 # For better readability, you might set a fixed-width font
 confusion_matrix_label.config(font=('Courier', 12))
